@@ -1,0 +1,10 @@
+
+
+# Flask specific ignores
+Codes/env/
+
+# Environment files
+.env
+
+
+
