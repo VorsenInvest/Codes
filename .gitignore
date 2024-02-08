@@ -1,7 +1,7 @@
 
 
 # Flask specific ignores
-Codes/env/
+Codes/Codes/import-api-data/env/
 
 # Environment files
 .env
