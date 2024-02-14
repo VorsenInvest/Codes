@@ -263,7 +263,7 @@ try:
 
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
-        cursor.execute("DELETE FROM brapi_API_data_daily;")
+        cursor.execute("DELETE FROM stock_indicators;")
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         for i in range(len(symbol_list)):
