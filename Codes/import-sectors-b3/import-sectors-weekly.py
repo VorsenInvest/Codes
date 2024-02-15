@@ -2,6 +2,18 @@ import requests
 import zipfile
 import io
 import pandas as pd
+import pymysql
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Database connection details
+host = 'brapi-api-db.cx0ko2c0yzso.us-east-2.rds.amazonaws.com'
+user = 'admin'
+password = 'G78u75s61T91!'
+db_name = 'brapi_API_DB'
 
 # Function to check for non-blank, four-character words
 def is_four_characters(word):
@@ -65,3 +77,33 @@ if response.status_code == 200:
             print("No Excel file found in the ZIP archive.")
 else:
     print("Failed to download the file")
+    
+# Initialize connection to None
+connection = None
+
+try:
+    connection = pymysql.connect(host=host, user=user, password=password, db=db_name, charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
+    logger.info("Connected to the database successfully")
+
+    with connection.cursor() as cursor:
+        cursor.execute("SET SQL_SAFE_UPDATES = 0;")
+        cursor.execute("DELETE FROM stock_sectors;")
+        cursor.execute("SET SQL_SAFE_UPDATES = 1;")
+        # Prepare the SQL query to insert data into 'stock_sectors'
+        sql_query = """
+        INSERT INTO stock_sectors (ticker, economicSector, subsector, segment) VALUES (%s, %s, %s, %s)
+        """
+        
+        # Iterate through DataFrame rows and insert data
+        for index, row in df_final.iterrows():
+            cursor.execute(sql_query, (row['ticker'], row['economicSector'], row['subsector'], row['segment']))
+
+        connection.commit()
+        logger.info("Data inserted successfully")
+
+except Exception as e:
+    logger.error(f"Error while connecting to or interacting with the database: {e}")
+finally:
+    if connection:
+        connection.close()
+        logger.info("Database connection closed")
