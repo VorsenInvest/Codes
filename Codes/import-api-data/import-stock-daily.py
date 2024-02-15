@@ -3,6 +3,7 @@ import requests
 import logging
 import pymysql
 import os
+import pandas as pd
 
 
 # Configure logging
@@ -307,8 +308,42 @@ try:
                 operatingMargins_list[i], profitMargins_list[i]
             ))
 
-        connection.commit()
+        
         logger.info("Data inserted successfully")
+        
+        # Fetch all records from stock_sectors
+        cursor.execute("SELECT * FROM stock_sectors;")
+        stock_sectors_records = cursor.fetchall()
+        stock_sectors_df = pd.DataFrame(stock_sectors_records)
+
+        # Fetch all records from stock_indicators
+        cursor.execute("SELECT * FROM stock_indicators;")
+        stock_indicators_records = cursor.fetchall()
+        stock_indicators_df = pd.DataFrame(stock_indicators_records)
+        
+        # Iterate over each row in stock_indicators DataFrame
+        for index, indicator_row in stock_indicators_df.iterrows():
+            # Extract first 4 characters of the symbol
+            symbol_prefix = indicator_row['symbol'][:4]
+
+            # Find matching row in stock_sectors based on ticker
+            matching_sector = stock_sectors_df[stock_sectors_df['ticker'].str.startswith(symbol_prefix)]
+
+            if not matching_sector.empty:
+                # Assuming one match for simplicity; adjust logic here if there can be multiple matches
+                match = matching_sector.iloc[0]
+
+                # Prepare the SQL UPDATE statement
+                sql_update = """
+                UPDATE stock_indicators
+                SET economicSector = %s, subsector = %s, segment = %s
+                WHERE id = %s
+                """
+                with connection.cursor() as cursor:
+                    cursor.execute(sql_update, (match['economicSector'], match['subsector'], match['segment'], indicator_row['id']))
+
+        
+        connection.commit()
 
 except Exception as e:
     logger.error("Error connecting to or interacting with the database: %s", e)
