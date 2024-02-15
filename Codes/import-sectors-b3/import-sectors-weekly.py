@@ -30,31 +30,34 @@ if response.status_code == 200:
                 df = pd.read_excel(excel_file, header=None)
 
             # Assign column names based on their position
-            df.columns = ['EconomicSector', 'Subsector', 'C', 'D', 'E']
+            df.columns = ['economicSector', 'subsector', 'segment', 'ticker','E']
 
-            # Logic for updating 'EconomicSector' and 'Subsector' values
-            condition_economic_sector = df['Subsector'].notnull() & df['C'].notnull()
-            df['EconomicSector_Update'] = df.apply(lambda row: row['Subsector'] if condition_economic_sector[row.name] else None, axis=1)
+            # Corrected logic for 'economicSector', following the pattern of 'subsector' but using the correct comparison
+            condition_economic_sector = df['economicSector'].notnull() & df['subsector'].notnull()
+            df['EconomicSector_Update'] = df.apply(lambda row: row['economicSector'] if condition_economic_sector[row.name] else None, axis=1)
             df['EconomicSector_Update'] = df['EconomicSector_Update'].ffill()
-            df['EconomicSector'] = df.apply(lambda row: row['EconomicSector_Update'] if is_four_characters(row['D']) else row['EconomicSector'], axis=1)
-            
-            condition_subsector = df['EconomicSector'].notnull() & df['C'].notnull()
-            df['Subsector_Update'] = df.apply(lambda row: row['EconomicSector'] if condition_subsector[row.name] else None, axis=1)
+            # Assuming 'ticker' was a mistake and meant to refer to 'D' based on previous context
+            df['economicSector'] = df.apply(lambda row: row['EconomicSector_Update'] if is_four_characters(row['ticker']) else row['economicSector'], axis=1)
+
+            # Logic for 'subsector' remains as it is, which you've confirmed to be correct:
+            condition_subsector = df['subsector'].notnull() & df['segment'].notnull()
+            df['Subsector_Update'] = df.apply(lambda row: row['subsector'] if condition_subsector[row.name] else None, axis=1)
             df['Subsector_Update'] = df['Subsector_Update'].ffill()
-            df['Subsector'] = df.apply(lambda row: row['Subsector_Update'] if is_four_characters(row['D']) else row['Subsector'], axis=1)
+            df['subsector'] = df.apply(lambda row: row['Subsector_Update'] if is_four_characters(row['ticker']) else row['subsector'], axis=1)
+
 
             # Drop the temporary update columns
             df.drop(columns=['EconomicSector_Update', 'Subsector_Update'], inplace=True)
 
             # Forward fill the 'Segment' column based on 'C' and 'D'
-            df['Segment'] = df.apply(lambda row: row['C'] if not is_four_characters(row['D']) else None, axis=1)
-            df['Segment'] = df['Segment'].ffill()
+            df['segment'] = df.apply(lambda row: row['segment'] if not is_four_characters(row['ticker']) else None, axis=1)
+            df['segment'] = df['segment'].ffill()
 
             # Filter the DataFrame to only include rows where 'D' has a 4-character word
-            df_filtered = df[df['D'].apply(is_four_characters)]
+            df_filtered = df[df['ticker'].apply(is_four_characters)]
 
             # Reorder the DataFrame columns
-            df_final = df_filtered[['D', 'EconomicSector', 'Subsector', 'Segment', 'E']]
+            df_final = df_filtered[['ticker', 'economicSector', 'subsector', 'segment']]
 
             # Print the final DataFrame
             print(df_final)  # This will print all rows of the final DataFrame
