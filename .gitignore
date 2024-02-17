@@ -3,6 +3,7 @@
 # Flask specific ignores
 Codes/import-sectors-b3/env/
 Codes/import-api-data/env/
+Codes/calculate-weighted-means/env/
 Codes/Codes/env/
 
 # Environment files
