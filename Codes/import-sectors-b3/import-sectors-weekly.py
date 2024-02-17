@@ -4,16 +4,28 @@ import io
 import pandas as pd
 import pymysql
 import logging
+from dotenv import load_dotenv
+import os
+import psycopg2
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve environment variables
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database connection details
-host = 'brapi-api-db.cx0ko2c0yzso.us-east-2.rds.amazonaws.com'
-user = 'admin'
-password = 'G78u75s61T91!'
-db_name = 'brapi_API_DB'
+host = DB_HOST
+user = DB_USER
+password = DB_PASSWORD
+db_name = DB_NAME
 
 # Function to check for non-blank, four-character words
 def is_four_characters(word):
@@ -88,6 +100,8 @@ try:
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
         cursor.execute("DELETE FROM stock_sectors;")
+        # Reset auto-increment for MySQL/MariaDB
+        cursor.execute("ALTER TABLE stock_sectors AUTO_INCREMENT = 1;")
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
         # Prepare the SQL query to insert data into 'stock_sectors'
         sql_query = """
