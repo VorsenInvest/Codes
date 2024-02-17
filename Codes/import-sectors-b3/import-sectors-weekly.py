@@ -6,7 +6,6 @@ import pymysql
 import logging
 from dotenv import load_dotenv
 import os
-import psycopg2
 
 # Load environment variables from .env file
 load_dotenv()

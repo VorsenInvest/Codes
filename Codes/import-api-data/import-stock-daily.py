@@ -4,7 +4,16 @@ import logging
 import pymysql
 import os
 import pandas as pd
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve environment variables
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
 
 # Configure logging
 logger = logging.getLogger()
@@ -250,10 +259,10 @@ for stock in filtered_stocks:
         # Handle or log the failure as per your requirement
 
 # Database connection details
-host = 'brapi-api-db.cx0ko2c0yzso.us-east-2.rds.amazonaws.com'
-user = 'admin'
-password = 'G78u75s61T91!'
-db_name = 'brapi_API_DB'
+host = DB_HOST
+user = DB_USER
+password = DB_PASSWORD
+db_name = DB_NAME
 
 # Initialize connection to None
 connection = None
@@ -265,6 +274,10 @@ try:
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
         cursor.execute("DELETE FROM stock_indicators;")
+
+        # Reset auto-increment for MySQL/MariaDB
+        cursor.execute("ALTER TABLE stock_indicators AUTO_INCREMENT = 1;")
+
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         for i in range(len(symbol_list)):
