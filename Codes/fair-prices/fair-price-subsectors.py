@@ -25,18 +25,18 @@ try:
 
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
-        cursor.execute("DELETE FROM fair_price_economicSectors;")
+        cursor.execute("DELETE FROM fair_price_subsectors;")
         
-        cursor.execute("ALTER TABLE fair_price_economicSectors AUTO_INCREMENT = 1;")
+        cursor.execute("ALTER TABLE fair_price_subsectors AUTO_INCREMENT = 1;")
 
         # Fetch values from fair_price_b3
         cursor.execute("""
-            SELECT marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
+            SELECT fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
             FROM fair_price_b3
             WHERE id = 1; # Adjust if necessary
         """)
         b3_values = cursor.fetchone()
-        # Select the desired columns from weighted_economicSectors
+        # Select the desired columns from weighted_subsectors
         cursor.execute("""
             SELECT `key`,
                 sum_marketCap AS marketCap, 
@@ -46,11 +46,13 @@ try:
                 weighted_mean_forwardEps AS forwardEps,
                 weighted_mean_bookValue AS bookValue,
                 weighted_mean_priceToBook AS priceToBook
-            FROM weighted_economicSectors;
+            FROM weighted_subsectors;
         """)
+
+        
         results = cursor.fetchall()
 
-        # Insert the selected data into fair_price_economicSectors
+        # Insert the selected data into fair_price_subsectors
         for row in results:
             # Check for non-negative and non-null values before calculation
             def calc_fair_price(pe, eps, bv, pb):
@@ -77,16 +79,15 @@ try:
                 fairPricePEtEpsf,
                 fairPricePEfEpst,
                 fairPricePEfEpsf,
-                b3_values['marketCap_b3'],
                 b3_values['fairPricePEtEpst_b3'],
                 b3_values['fairPricePEtEpsf_b3'],
                 b3_values['fairPricePEfEpst_b3'],
                 b3_values['fairPricePEfEpsf_b3']
             )
             cursor.execute("""
-                INSERT INTO fair_price_economicSectors (`key`, marketCap, priceEarnings, forwardPE, trailingEps, forwardEps, bookValue, priceToBook, 
-                fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf, marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO fair_price_subsectors (`key`, marketCap, priceEarnings, forwardPE, trailingEps, forwardEps, bookValue, priceToBook, 
+                fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                 marketCap = VALUES(marketCap),
                 priceEarnings = VALUES(priceEarnings),
@@ -99,14 +100,13 @@ try:
                 fairPricePEtEpsf = VALUES(fairPricePEtEpsf),
                 fairPricePEfEpst = VALUES(fairPricePEfEpst),
                 fairPricePEfEpsf = VALUES(fairPricePEfEpsf),
-                marketCap_b3 = VALUES(marketCap_b3),
                 fairPricePEtEpst_b3 = VALUES(fairPricePEtEpst_b3),
                 fairPricePEtEpsf_b3 = VALUES(fairPricePEtEpsf_b3),
                 fairPricePEfEpst_b3 = VALUES(fairPricePEfEpst_b3),
                 fairPricePEfEpsf_b3 = VALUES(fairPricePEfEpsf_b3);
             """, data_tuple)
             cursor.execute("""
-            UPDATE fair_price_economicSectors
+            UPDATE fair_price_subsectors
             SET 
                 diffPricePEtEpst_b3 = fairPricePEtEpst - fairPricePEtEpst_b3,
                 diffPricePEtEpsf_b3 = fairPricePEtEpsf - fairPricePEtEpsf_b3,
@@ -122,7 +122,7 @@ try:
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         connection.commit()
-        print("Data successfully processed and inserted/updated into 'fair_price_economicSectors'.")
+        print("Data successfully processed and inserted/updated into 'fair_price_subsectors'.")
 
 except Exception as e:
     print(f"An error occurred: {e}")
