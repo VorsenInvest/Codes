@@ -26,9 +26,9 @@ try:
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
         cursor.execute("DELETE FROM fair_price_economicSectors;")
-        cursor.execute("ALTER TABLE fair_price_economicSectors AUTO_INCREMENT = 1;")
-        cursor.execute("SET SQL_SAFE_UPDATES = 1;")
         
+        cursor.execute("ALTER TABLE fair_price_economicSectors AUTO_INCREMENT = 1;")
+
         # Fetch values from fair_price_b3
         cursor.execute("""
             SELECT fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
@@ -36,7 +36,7 @@ try:
             WHERE id = 1; # Adjust if necessary
         """)
         b3_values = cursor.fetchone()
-
+        # Select the desired columns from weighted_economicSectors
         cursor.execute("""
             SELECT `key`,
                 sum_marketCap AS marketCap, 
@@ -50,7 +50,9 @@ try:
         """)
         results = cursor.fetchall()
 
+        # Insert the selected data into fair_price_economicSectors
         for row in results:
+            # Check for non-negative and non-null values before calculation
             def calc_fair_price(pe, eps, bv, pb):
                 if all(v is not None and v >= 0 for v in [pe, eps, bv, pb]):
                     return math.sqrt(pe * eps * bv * pb)
@@ -101,6 +103,21 @@ try:
                 fairPricePEfEpst_b3 = VALUES(fairPricePEfEpst_b3),
                 fairPricePEfEpsf_b3 = VALUES(fairPricePEfEpsf_b3);
             """, data_tuple)
+            cursor.execute("""
+            UPDATE fair_price_economicSectors
+            SET 
+                diffPricePEtEpst_b3 = fairPricePEtEpst - fairPricePEtEpst_b3,
+                diffPricePEtEpsf_b3 = fairPricePEtEpsf - fairPricePEtEpsf_b3,
+                diffPricePEfEpst_b3 = fairPricePEfEpst - fairPricePEfEpst_b3,
+                diffPricePEfEpsf_b3 = fairPricePEfEpsf - fairPricePEfEpsf_b3,
+                diffPercPricePEtEpst_b3 = (fairPricePEtEpst - fairPricePEtEpst_b3)/fairPricePEtEpst_b3,
+                diffPercPricePEtEpsf_b3 = (fairPricePEtEpsf - fairPricePEtEpsf_b3)/fairPricePEtEpst_b3,
+                diffPercPricePEfEpst_b3 = (fairPricePEfEpst - fairPricePEfEpst_b3)/fairPricePEtEpst_b3,
+                diffPercPricePEfEpsf_b3 = (fairPricePEfEpsf - fairPricePEfEpsf_b3)/fairPricePEtEpst_b3;
+            """)
+
+            
+        cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         connection.commit()
         print("Data successfully processed and inserted/updated into 'fair_price_economicSectors'.")
