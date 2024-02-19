@@ -40,7 +40,7 @@ try:
                 weighted_mean_bookValue AS bookValue_b3,
                 weighted_mean_priceToBook AS priceToBook_b3
             FROM weighted_b3;
-        """)
+        """) 
         results = cursor.fetchall()
 
         # Fetching regularMarketPrice from the ^BVSP endpoint
