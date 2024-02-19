@@ -112,10 +112,10 @@ try:
                 diffPricePEtEpsf_b3 = fairPricePEtEpsf - fairPricePEtEpsf_b3,
                 diffPricePEfEpst_b3 = fairPricePEfEpst - fairPricePEfEpst_b3,
                 diffPricePEfEpsf_b3 = fairPricePEfEpsf - fairPricePEfEpsf_b3,
-                diffPercPricePEtEpst_b3 = (fairPricePEtEpst - fairPricePEtEpst_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEtEpsf_b3 = (fairPricePEtEpsf - fairPricePEtEpsf_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEfEpst_b3 = (fairPricePEfEpst - fairPricePEfEpst_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEfEpsf_b3 = (fairPricePEfEpsf - fairPricePEfEpsf_b3)/fairPricePEtEpst_b3;
+                diffPercPricePEtEpst_b3 = (fairPricePEtEpst - fairPricePEtEpst_b3)/fairPricePEtEpst,
+                diffPercPricePEtEpsf_b3 = (fairPricePEtEpsf - fairPricePEtEpsf_b3)/fairPricePEtEpst,
+                diffPercPricePEfEpst_b3 = (fairPricePEfEpst - fairPricePEfEpst_b3)/fairPricePEtEpst,
+                diffPercPricePEfEpsf_b3 = (fairPricePEfEpsf - fairPricePEfEpsf_b3)/fairPricePEtEpst;
             """)
 
             

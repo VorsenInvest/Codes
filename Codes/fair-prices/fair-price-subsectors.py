@@ -31,7 +31,7 @@ try:
 
         # Fetch values from fair_price_b3
         cursor.execute("""
-            SELECT fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
+            SELECT marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
             FROM fair_price_b3
             WHERE id = 1; # Adjust if necessary
         """)
@@ -48,8 +48,6 @@ try:
                 weighted_mean_priceToBook AS priceToBook
             FROM weighted_subsectors;
         """)
-
-        
         results = cursor.fetchall()
 
         # Insert the selected data into fair_price_subsectors
@@ -79,6 +77,7 @@ try:
                 fairPricePEtEpsf,
                 fairPricePEfEpst,
                 fairPricePEfEpsf,
+                b3_values['marketCap_b3'],
                 b3_values['fairPricePEtEpst_b3'],
                 b3_values['fairPricePEtEpsf_b3'],
                 b3_values['fairPricePEfEpst_b3'],
@@ -86,8 +85,8 @@ try:
             )
             cursor.execute("""
                 INSERT INTO fair_price_subsectors (`key`, marketCap, priceEarnings, forwardPE, trailingEps, forwardEps, bookValue, priceToBook, 
-                fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf, marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                 marketCap = VALUES(marketCap),
                 priceEarnings = VALUES(priceEarnings),
@@ -100,11 +99,48 @@ try:
                 fairPricePEtEpsf = VALUES(fairPricePEtEpsf),
                 fairPricePEfEpst = VALUES(fairPricePEfEpst),
                 fairPricePEfEpsf = VALUES(fairPricePEfEpsf),
+                marketCap_b3 = VALUES(marketCap_b3),
                 fairPricePEtEpst_b3 = VALUES(fairPricePEtEpst_b3),
                 fairPricePEtEpsf_b3 = VALUES(fairPricePEtEpsf_b3),
                 fairPricePEfEpst_b3 = VALUES(fairPricePEfEpst_b3),
                 fairPricePEfEpsf_b3 = VALUES(fairPricePEfEpsf_b3);
             """, data_tuple)
+
+            # Retrieve the economicSector for the current 'key'
+            cursor.execute("""
+                SELECT economicSector FROM weighted_subsectors WHERE `key` = %s;
+            """, (row['key'],))
+            economicSector_row = cursor.fetchone()
+            if economicSector_row:
+                economicSector = economicSector_row['economicSector']
+                
+                # Retrieve fair price values from fair_price_economicSectors based on economicSector
+                cursor.execute("""
+                    SELECT marketCap, fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf
+                    FROM fair_price_economicSectors
+                    WHERE `key` = %s;
+                """, (economicSector,))
+                es_values = cursor.fetchone()
+                if es_values:
+                    # Update fair_price_subsectors with economic sector fair prices
+                    cursor.execute("""
+                        UPDATE fair_price_subsectors
+                        SET 
+                            marketCap_es = %s,
+                            fairPricePEtEpst_es = %s,
+                            fairPricePEtEpsf_es = %s,
+                            fairPricePEfEpst_es = %s,
+                            fairPricePEfEpsf_es = %s
+                        WHERE `key` = %s;
+                    """, (
+                        es_values['marketCap'],
+                        es_values['fairPricePEtEpst'],
+                        es_values['fairPricePEtEpsf'],
+                        es_values['fairPricePEfEpst'],
+                        es_values['fairPricePEfEpsf'],
+                        row['key']
+                    ))
+
             cursor.execute("""
             UPDATE fair_price_subsectors
             SET 
@@ -112,13 +148,24 @@ try:
                 diffPricePEtEpsf_b3 = fairPricePEtEpsf - fairPricePEtEpsf_b3,
                 diffPricePEfEpst_b3 = fairPricePEfEpst - fairPricePEfEpst_b3,
                 diffPricePEfEpsf_b3 = fairPricePEfEpsf - fairPricePEfEpsf_b3,
-                diffPercPricePEtEpst_b3 = (fairPricePEtEpst - fairPricePEtEpst_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEtEpsf_b3 = (fairPricePEtEpsf - fairPricePEtEpsf_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEfEpst_b3 = (fairPricePEfEpst - fairPricePEfEpst_b3)/fairPricePEtEpst_b3,
-                diffPercPricePEfEpsf_b3 = (fairPricePEfEpsf - fairPricePEfEpsf_b3)/fairPricePEtEpst_b3;
+                diffPercPricePEtEpst_b3 = (fairPricePEtEpst - fairPricePEtEpst_b3)/fairPricePEtEpst,
+                diffPercPricePEtEpsf_b3 = (fairPricePEtEpsf - fairPricePEtEpsf_b3)/fairPricePEtEpst,
+                diffPercPricePEfEpst_b3 = (fairPricePEfEpst - fairPricePEfEpst_b3)/fairPricePEtEpst,
+                diffPercPricePEfEpsf_b3 = (fairPricePEfEpsf - fairPricePEfEpsf_b3)/fairPricePEtEpst,
+                           
+                diffPricePEtEpst_es = fairPricePEtEpst - fairPricePEtEpst_es,
+                diffPricePEtEpsf_es = fairPricePEtEpsf - fairPricePEtEpsf_es,
+                diffPricePEfEpst_es = fairPricePEfEpst - fairPricePEfEpst_es,
+                diffPricePEfEpsf_es = fairPricePEfEpsf - fairPricePEfEpsf_es,
+                diffPercPricePEtEpst_es = (fairPricePEtEpst - fairPricePEtEpst_es) / fairPricePEtEpst,
+                diffPercPricePEtEpsf_es = (fairPricePEtEpsf - fairPricePEtEpsf_es) / fairPricePEtEpsf,
+                diffPercPricePEfEpst_es = (fairPricePEfEpst - fairPricePEfEpst_es) / fairPricePEfEpst,
+                diffPercPricePEfEpsf_es = (fairPricePEfEpsf - fairPricePEfEpsf_es) / fairPricePEfEpsf;
+
             """)
 
-            
+
+
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         connection.commit()
