@@ -2,6 +2,24 @@ import pymysql
 from dotenv import load_dotenv
 import os
 import math
+from decimal import Decimal
+
+# Function to calculate geometric mean
+def geometric_mean(values):
+    # Filter out None values and convert Decimal to float
+    valid_values = [float(v) for v in values if v is not None]
+    if not valid_values:
+        return None  # Or handle the empty list case appropriately
+    product = math.prod(valid_values)
+    return product ** (1.0 / len(valid_values))
+
+
+# Function to calculate fair price
+def calc_fair_price(pe, eps, bv, pb):
+    if all(v is not None and v >= 0 for v in [pe, eps, bv, pb]):
+        return math.sqrt(pe * eps * bv * pb)
+    else:
+        return None
 
 # Load environment variables
 load_dotenv()
@@ -12,7 +30,6 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Connect to the database
 try:
     connection = pymysql.connect(
         host=DB_HOST,
@@ -25,44 +42,39 @@ try:
 
     with connection.cursor() as cursor:
         cursor.execute("SET SQL_SAFE_UPDATES = 0;")
-        cursor.execute("DELETE FROM fair_price_stocks;")
-        
-        cursor.execute("ALTER TABLE fair_price_stocks AUTO_INCREMENT = 1;")
+        # Prepare for new data; Assuming fair_price_stocks_adjusted is the target for new data
+        cursor.execute("DELETE FROM fair_price_stocks_adjusted;")
+        cursor.execute("ALTER TABLE fair_price_stocks_adjusted AUTO_INCREMENT = 1;")
 
         # Fetch values from fair_price_b3
         cursor.execute("""
             SELECT marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3
             FROM fair_price_b3
-            WHERE id = 1; # Adjust if necessary
+            WHERE id = 1;
         """)
         b3_values = cursor.fetchone()
+
         # Select the desired columns from stock_indicators
         cursor.execute("""
             SELECT `key`,
-                marketCap AS marketCap, 
-                priceEarnings AS priceEarnings,
-                forwardPE AS forwardPE,
-                trailingEps AS trailingEps,
-                forwardEps AS forwardEps,
-                bookValue AS bookValue,
-                priceToBook AS priceToBook
+                   marketCap, 
+                   priceEarnings,
+                   forwardPE,
+                   trailingEps,
+                   forwardEps,
+                   bookValue,
+                   priceToBook
             FROM stock_indicators;
         """)
         results = cursor.fetchall()
 
         # Insert the selected data into fair_price_stocks
         for row in results:
-            # Check for non-negative and non-null values before calculation
-            def calc_fair_price(pe, eps, bv, pb):
-                if all(v is not None and v >= 0 for v in [pe, eps, bv, pb]):
-                    return math.sqrt(pe * eps * bv * pb)
-                else:
-                    return None
-
-            fairPricePEtEpst = calc_fair_price(row['priceEarnings'], row['trailingEps'], row['bookValue'], row['priceToBook'])
-            fairPricePEtEpsf = calc_fair_price(row['priceEarnings'], row['forwardEps'], row['bookValue'], row['priceToBook'])
-            fairPricePEfEpst = calc_fair_price(row['forwardPE'], row['trailingEps'], row['bookValue'], row['priceToBook'])
-            fairPricePEfEpsf = calc_fair_price(row['forwardPE'], row['forwardEps'], row['bookValue'], row['priceToBook'])
+            # Calculate initial fair prices
+            fairPricePEtEpst_initial = calc_fair_price(row['priceEarnings'], row['trailingEps'], row['bookValue'], row['priceToBook'])
+            fairPricePEtEpsf_initial = calc_fair_price(row['priceEarnings'], row['forwardEps'], row['bookValue'], row['priceToBook'])
+            fairPricePEfEpst_initial = calc_fair_price(row['forwardPE'], row['trailingEps'], row['bookValue'], row['priceToBook'])
+            fairPricePEfEpsf_initial = calc_fair_price(row['forwardPE'], row['forwardEps'], row['bookValue'], row['priceToBook'])
 
             data_tuple = (
                 row['key'],
@@ -73,10 +85,6 @@ try:
                 row['forwardEps'],
                 row['bookValue'],
                 row['priceToBook'],
-                fairPricePEtEpst,
-                fairPricePEtEpsf,
-                fairPricePEfEpst,
-                fairPricePEfEpsf,
                 b3_values['marketCap_b3'],
                 b3_values['fairPricePEtEpst_b3'],
                 b3_values['fairPricePEtEpsf_b3'],
@@ -84,9 +92,9 @@ try:
                 b3_values['fairPricePEfEpsf_b3']
             )
             cursor.execute("""
-                INSERT INTO fair_price_stocks (`key`, marketCap, priceEarnings, forwardPE, trailingEps, forwardEps, bookValue, priceToBook, 
-                fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf, marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO fair_price_stocks_adjusted (`key`, marketCap, priceEarnings, forwardPE, trailingEps, forwardEps, bookValue, priceToBook, 
+                           marketCap_b3, fairPricePEtEpst_b3, fairPricePEtEpsf_b3, fairPricePEfEpst_b3, fairPricePEfEpsf_b3)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                 marketCap = VALUES(marketCap),
                 priceEarnings = VALUES(priceEarnings),
@@ -95,10 +103,6 @@ try:
                 forwardEps = VALUES(forwardEps),
                 bookValue = VALUES(bookValue),
                 priceToBook = VALUES(priceToBook),
-                fairPricePEtEpst = VALUES(fairPricePEtEpst),
-                fairPricePEtEpsf = VALUES(fairPricePEtEpsf),
-                fairPricePEfEpst = VALUES(fairPricePEfEpst),
-                fairPricePEfEpsf = VALUES(fairPricePEfEpsf),
                 marketCap_b3 = VALUES(marketCap_b3),
                 fairPricePEtEpst_b3 = VALUES(fairPricePEtEpst_b3),
                 fairPricePEtEpsf_b3 = VALUES(fairPricePEtEpsf_b3),
@@ -124,7 +128,7 @@ try:
                 if es_values:
                     # Update fair_price_stocks with economic sector fair prices
                     cursor.execute("""
-                        UPDATE fair_price_stocks
+                        UPDATE fair_price_stocks_adjusted
                         SET 
                             marketCap_es = %s,
                             fairPricePEtEpst_es = %s,
@@ -158,7 +162,7 @@ try:
                 if ss_values:
                     # Update fair_price_stocks with subsector fair prices
                     cursor.execute("""
-                        UPDATE fair_price_stocks
+                        UPDATE fair_price_stocks_adjusted
                         SET 
                             marketCap_ss = %s,
                             fairPricePEtEpst_ss = %s,
@@ -192,7 +196,7 @@ try:
                 if s_values:
                     # Update fair_price_stocks with segment fair prices
                     cursor.execute("""
-                        UPDATE fair_price_stocks
+                        UPDATE fair_price_stocks_adjusted
                         SET 
                             marketCap_s = %s,
                             fairPricePEtEpst_s = %s,
@@ -208,9 +212,52 @@ try:
                         s_values['fairPricePEfEpsf'],
                         row['key']
                     ))
+            # Calculate geometric means for each fair price
+            # Calculate geometric means including _es, _ss, and _s values
+            fairPricePEtEpst = geometric_mean([
+                fairPricePEtEpst_initial, 
+                b3_values['fairPricePEtEpst_b3'], 
+                es_values['fairPricePEtEpst'], 
+                ss_values['fairPricePEtEpst'], 
+                s_values['fairPricePEtEpst']
+            ])
+
+            fairPricePEtEpsf = geometric_mean([
+                fairPricePEtEpsf_initial, 
+                b3_values['fairPricePEtEpsf_b3'], 
+                es_values['fairPricePEtEpsf'], 
+                ss_values['fairPricePEtEpsf'], 
+                s_values['fairPricePEtEpsf']
+            ])
+
+            fairPricePEfEpst = geometric_mean([
+                fairPricePEfEpst_initial, 
+                b3_values['fairPricePEfEpst_b3'], 
+                es_values['fairPricePEfEpst'], 
+                ss_values['fairPricePEfEpst'], 
+                s_values['fairPricePEfEpst']
+            ])
+
+            fairPricePEfEpsf = geometric_mean([
+                fairPricePEfEpsf_initial, 
+                b3_values['fairPricePEfEpsf_b3'], 
+                es_values['fairPricePEfEpsf'], 
+                ss_values['fairPricePEfEpsf'], 
+                s_values['fairPricePEfEpsf']
+            ])
+            # Insert geometric mean values into fair_price_stocks_adjusted
+            cursor.execute("""
+                INSERT INTO fair_price_stocks_adjusted (`key`, fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf)
+                VALUES (%s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                fairPricePEtEpst = VALUES(fairPricePEtEpst),
+                fairPricePEtEpsf = VALUES(fairPricePEtEpsf),
+                fairPricePEfEpst = VALUES(fairPricePEfEpst),
+                fairPricePEfEpsf = VALUES(fairPricePEfEpsf);
+            """, (row['key'], fairPricePEtEpst, fairPricePEtEpsf, fairPricePEfEpst, fairPricePEfEpsf))
 
             cursor.execute("""
-            UPDATE fair_price_stocks
+            UPDATE fair_price_stocks_adjusted
             SET 
                 diffPricePEtEpst_b3 = fairPricePEtEpst - fairPricePEtEpst_b3,
                 diffPricePEtEpsf_b3 = fairPricePEtEpsf - fairPricePEtEpsf_b3,
@@ -256,7 +303,7 @@ try:
         cursor.execute("SET SQL_SAFE_UPDATES = 1;")
 
         connection.commit()
-        print("Data successfully processed and inserted/updated into 'fair_price_stocks'.")
+        print("Data successfully processed and inserted/updated into 'fair_price_stocks_adjusted'.")
 
 except Exception as e:
     print(f"An error occurred: {e}")
